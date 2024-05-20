@@ -1,0 +1,23 @@
+version: "3"
+
+services:
+  grpc-server:
+    #image: rust:1.78.0-bookworm
+    build: 
+      dockerfile: Dockerfile
+      context: ./
+    image: grpc-server  
+    container_name: grpc-server
+    hostname: grpc-server
+    environment:
+      - RUST_BACKTRACE=1
+      - RUST_LOG=info
+      - RPC_WORKER_THREAD=12
+    volumes:
+      - ./server:/server
+      - ./proto:/proto:ro
+    working_dir: "/server"
+    command: ["cargo", "run"]
+    restart: on-failure
+    ports:
+      - 8081:50051
