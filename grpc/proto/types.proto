@@ -1,0 +1,34 @@
+syntax = "proto3";
+package consensus;
+option go_package = "github.com/scalarorg/cometbft/scalaris/api/proto";
+
+message Request {
+  oneof value {
+    RequestEcho               echo                 = 1;
+  }
+  reserved 2;
+}
+
+message Response {
+  oneof value {
+    ResponseEcho               echo                 = 1;
+  }
+  reserved 2;
+}
+
+message RequestEcho {
+  string message = 1;
+}
+
+message ResponseEcho {
+  string message = 1;
+}
+
+message ExternalTransaction {
+    string namespace = 1;   //Namespace used to classify services
+    bytes tx_bytes = 2;     //Transaction hash or some raw data 
+}
+
+message CommitedTransactions {
+    repeated ExternalTransaction transactions = 1;
+}

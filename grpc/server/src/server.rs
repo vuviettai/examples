@@ -1,13 +1,16 @@
+use std::pin::Pin;
+
 use crate::{
     proto::{
+        consensus_api_server::ConsensusApi,
         route_guide_server::{RouteGuide, RouteGuideServer},
-        RouteNote,
+        CommitedTransactions, ExternalTransaction, RouteNote,
     },
     ResponseStream,
 };
 use tokio::sync::mpsc;
-use tokio_stream::{wrappers::UnboundedReceiverStream, StreamExt};
-use tonic::{transport::Server, Response};
+use tokio_stream::{wrappers::UnboundedReceiverStream, Stream, StreamExt};
+use tonic::{transport::Server, Response, Status};
 use tracing::{error, info, span};
 // pub mod message {
 //     tonic::include_proto!("message");
@@ -54,15 +57,49 @@ impl RouteGuide for RouteService {
     }
 }
 
-#[tokio::main]
-pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:50051".parse()?;
-    let service = RouteService::default();
+#[derive(Default, Clone)]
+pub struct ConsensusService {}
 
-    Server::builder()
-        .add_service(RouteGuideServer::new(service))
-        .serve(addr)
-        .await?;
+#[tonic::async_trait]
+impl ConsensusApi for ConsensusService {
+    type InitTransactionStream =
+        Pin<Box<dyn Stream<Item = Result<CommitedTransactions, Status>> + Send>>;
+    /*
+     * Consensus client init a duplex streaming connection to send external transaction
+     * and to receives consensus output.
+     * External trasaction contains a namespace field and a content in byte array
+     */
+    async fn init_transaction(
+        &self,
+        request: tonic::Request<tonic::Streaming<ExternalTransaction>>,
+    ) -> Result<Response<Self::InitTransactionStream>, Status> {
+        info!("ConsensusServiceServer::init_transaction_streams");
+        let mut in_stream = request.into_inner();
+        let (tx_consensus, rx_consensus) = mpsc::unbounded_channel();
+        //self.add_consensus_listener(tx_consensus).await;
+        let service = self.clone();
+        let _handle = tokio::spawn(async move {
+            //let service = consensus_service;
+            while let Some(client_message) = in_stream.next().await {
+                match client_message {
+                    Ok(transaction_in) => {
+                        // let _handle_res =
+                        //     service.handle_consensus_transaction(transaction_in).await;
+                        info!("Received transaction {:?}", &transaction_in);
+                        let _ = tx_consensus.send(Ok(CommitedTransactions {
+                            transactions: vec![transaction_in],
+                        }));
+                    }
+                    Err(err) => {
+                        error!("{:?}", err);
+                    }
+                }
+            }
+        });
+        let out_stream = UnboundedReceiverStream::new(rx_consensus);
 
-    Ok(())
+        Ok(Response::new(
+            Box::pin(out_stream) as Self::InitTransactionStream
+        ))
+    }
 }

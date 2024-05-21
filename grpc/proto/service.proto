@@ -1,0 +1,11 @@
+syntax = "proto3";
+package consensus;
+
+import "proto/types.proto";
+
+option go_package = "github.com/scalarorg/cometbft/scalaris/api/proto";
+
+service ConsensusApi {
+   rpc InitTransaction(stream ExternalTransaction) returns (stream CommitedTransactions) {}
+   rpc Echo(RequestEcho) returns (ResponseEcho);
+}

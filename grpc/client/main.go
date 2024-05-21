@@ -21,8 +21,50 @@ func main() {
 	defer conn.Close()
 	c := pb.NewRouteGuideClient(conn)
 	runRouteChat(c)
+	consensusClient := pb.NewConsensusApiClient((conn))
+	initTransactionStream(consensusClient)
 }
-
+func initTransactionStream(client pb.ConsensusApiClient) {
+	txs := []*pb.ExternalTransaction{
+		{Namespace: "EvmOs", TxBytes: []byte{1}},
+		{Namespace: "EvmOs", TxBytes: []byte{2}},
+		{Namespace: "EvmOs", TxBytes: []byte{3}},
+		{Namespace: "EvmOs", TxBytes: []byte{4}},
+		{Namespace: "EvmOs", TxBytes: []byte{5}},
+		{Namespace: "EvmOs", TxBytes: []byte{6}},
+		{Namespace: "EvmOs", TxBytes: []byte{7}},
+		{Namespace: "EvmOs", TxBytes: []byte{8}},
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	stream, err := client.InitTransaction(ctx)
+	if err != nil {
+		log.Fatalf("client.RouteChat failed: %v", err)
+	}
+	waitc := make(chan struct{})
+	go func() {
+		for {
+			in, err := stream.Recv()
+			if err == io.EOF {
+				// read done.
+				close(waitc)
+				return
+			}
+			if err != nil {
+				log.Fatalf("client.InitTransaction failed: %v", err)
+			}
+			txs := in.Transactions
+			log.Printf("Got commited transactions %s", txs)
+		}
+	}()
+	for _, tx := range txs {
+		if err := stream.Send(tx); err != nil {
+			log.Fatalf("client.Sendtx: stream.Send(%v) failed: %v", tx, err)
+		}
+	}
+	stream.CloseSend()
+	<-waitc
+}
 func runRouteChat(client pb.RouteGuideClient) {
 	notes := []*pb.RouteNote{
 		{Location: &pb.Point{Latitude: 0, Longitude: 1}, Message: "First message"},
