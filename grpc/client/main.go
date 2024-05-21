@@ -5,6 +5,7 @@ import (
 	pb "grpc-client/proto"
 	"io"
 	"log"
+	"os"
 	"time"
 
 	"google.golang.org/grpc"
@@ -12,7 +13,8 @@ import (
 )
 
 func main() {
-	conn, err := grpc.NewClient("localhost:8081", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	serverUrl := os.Getenv("GRPC_SERVER_URL")
+	conn, err := grpc.NewClient(serverUrl, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}

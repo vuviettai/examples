@@ -1,0 +1,22 @@
+version: "3"
+
+services:
+  grpc-client:
+    image: golang:1.22.3-bookworm
+    # build: 
+    #   dockerfile: Dockerfile
+    #   context: ./
+    # image: grpc-client  
+    container_name: grpc-client 
+    hostname: grpc-client 
+    environment:
+      - RUST_BACKTRACE=1
+      - RUST_LOG=info
+      - RPC_WORKER_THREAD=12
+      - GRPC_SERVER_URL=host.docker.internal:8081
+    volumes:
+      - ./client:/client
+      - ./proto:/proto:ro
+    working_dir: "/client"
+    command: ["go", "run", "main.go"]
+    restart: on-failure
